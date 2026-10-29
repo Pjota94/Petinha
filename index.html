@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>🍉 Petinha Comilona 🍉</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;700;800&display=swap');
+    *{margin:0;padding:0;box-sizing:border-box;}
+
+    body{
+      background: radial-gradient(ellipse at 60% 0%, #ffd6ec 0%, #fff3d6 45%, #d6f5e8 100%);
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      min-height:100vh;
+      font-family:'Baloo 2',cursive,sans-serif;
+      overflow:hidden; user-select:none;
+    }
+
+    /* ── TITLE ── */
+    #title-wrap{
+      display:flex; align-items:center; gap:10px; margin-bottom:6px;
+    }
+    h1{
+      font-size:2.6rem; font-weight:800;
+      background: linear-gradient(135deg,#ff6bab,#ff9f43,#ff6bab);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      background-clip:text;
+      filter: drop-shadow(0 2px 0 rgba(255,107,171,.3));
+      letter-spacing:1px;
+    }
+
+    /* ── HUD ── */
+    #hud{
+      display:flex; align-items:center; gap:18px; margin-bottom:10px;
+    }
+    #score-box{
+      background:rgba(255,255,255,.85);
+      backdrop-filter:blur(6px);
+      border:2.5px solid #ffb3d1;
+      border-radius:50px;
+      padding:5px 20px;
+      font-size:1.15rem; color:#e0306a; font-weight:700;
+      box-shadow: 0 2px 12px rgba(224,48,106,.15);
+    }
+    #lives-box{
+      background:rgba(255,255,255,.85);
+      backdrop-filter:blur(6px);
+      border:2.5px solid #ffb3d1;
+      border-radius:50px;
+      padding:5px 16px;
+      display:flex; gap:4px; align-items:center;
+      font-size:1.5rem;
+      box-shadow:0 2px 12px rgba(224,48,106,.15);
+    }
+    .heart{transition:transform .3s,filter .3s;}
+    .heart.lost{filter:grayscale(1) opacity(.3); transform:scale(.75);}
+    .heart.gained{animation:heartPop .4s ease-out;}
+    @keyframes heartPop{0%{transform:scale(1)}50%{transform:scale(1.6)}100%{transform:scale(1)}}
+
+    /* ── GAME AREA ── */
+    #game-wrapper{
+      position:relative;
+      width:560px; height:520px;
+    }
+
+    #gameCanvas{
+      position:absolute; top:0; left:0;
+      border-radius:24px;
+      box-shadow:
+        0 0 0 3px rgba(255,107,171,.5),
+        0 0 0 6px rgba(255,159,67,.3),
+        0 16px 48px rgba(200,50,100,.2);
+      display:block;
+    }
+
+    /* ── PETINHA SPRITE ── */
+    #petinha-sprite{
+      position:absolute;
+      bottom:20px;
+      width:92px; height:134px;
+      object-fit:cover;
+      object-position:center top;
+      border-radius:50% 50% 44% 44% / 40% 40% 52% 52%;
+      pointer-events:none; z-index:5;
+      filter: drop-shadow(0 6px 12px rgba(180,50,90,.4));
+      transition: left .045s linear;
+      will-change: left, transform;
+    }
+    #petinha-sprite.happy{animation:bounce .32s ease-in-out 2;}
+    #petinha-sprite.hurt {animation:shake  .42s ease-in-out; filter:drop-shadow(0 0 14px rgba(220,53,69,.9));}
+    #petinha-sprite.extra{animation:spin   .5s ease-in-out;  filter:drop-shadow(0 0 16px rgba(255,215,0,.95));}
+    @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+    @keyframes shake {0%,100%{transform:translateX(0)}20%{transform:translateX(-10px)}40%{transform:translateX(10px)}60%{transform:translateX(-7px)}80%{transform:translateX(7px)}}
+    @keyframes spin  {0%{transform:rotate(0)scale(1)}40%{transform:rotate(-12deg)scale(1.15)}70%{transform:rotate(10deg)scale(1.1)}100%{transform:rotate(0)scale(1)}}
+
+    /* ── OVERLAYS ── */
+    .overlay{
+      position:absolute; top:0; left:0; width:100%; height:100%;
+      background:rgba(255,236,250,.95);
+      backdrop-filter:blur(8px);
+      border-radius:20px;
+      display:flex; flex-direction:column;
+      align-items:center; justify-content:center;
+      gap:14px; z-index:20;
+    }
+    .overlay h2{font-size:2rem; color:#e0306a; text-align:center; font-weight:800;}
+    .overlay p {font-size:1rem; color:#555; text-align:center; max-width:360px; line-height:1.65;}
+
+    .petinha-thumb{
+      width:100px; height:118px;
+      object-fit:cover; object-position:center top;
+      border-radius:50% 50% 44% 44% / 40% 40% 52% 52%;
+      border:3.5px solid #ffb3d1;
+      box-shadow:0 6px 20px rgba(224,48,106,.3);
+    }
+
+    .btn{
+      background:linear-gradient(135deg,#ff6bab,#ff9f43);
+      color:#fff; border:none; border-radius:50px;
+      padding:11px 38px; font-size:1.15rem;
+      font-family:'Baloo 2',cursive; font-weight:700;
+      cursor:pointer;
+      box-shadow:0 4px 18px rgba(255,107,171,.45), inset 0 1px 0 rgba(255,255,255,.25);
+      transition:transform .15s, box-shadow .15s;
+      letter-spacing:.5px;
+    }
+    .btn:hover{transform:scale(1.08); box-shadow:0 8px 24px rgba(255,107,171,.6);}
+    .btn:active{transform:scale(.97);}
+
+    /* ── BOTTOM INFO ── */
+    #bottom{
+      display:flex; flex-direction:column; align-items:center; gap:6px; margin-top:8px;
+    }
+    #legend{
+      display:flex; gap:16px; font-size:.88rem;
+    }
+    #legend .chip{
+      display:flex; align-items:center; gap:6px;
+      background:rgba(255,255,255,.8);
+      border-radius:50px; padding:4px 14px;
+      box-shadow:0 2px 8px rgba(0,0,0,.08);
+      font-weight:600;
+    }
+    .chip-good{border:2px solid #82e0a0; color:#1a7a3c;}
+    .chip-bad {border:2px solid #f5a0a8; color:#a01a2a;}
+    .chip-extra{border:2px solid #ffd700; color:#8a6000; background:rgba(255,250,210,.9)!important;}
+    #controls-hint{font-size:.8rem; color:#bbb;}
+  </style>
+</head>
+<body>
+
+<div id="title-wrap">
+  <span style="font-size:2rem">🍉</span>
+  <h1>Petinha Comilona</h1>
+  <span style="font-size:2rem">🍉</span>
+</div>
+
+<div id="hud">
+  <div id="score-box">⭐ <span id="scoreVal">0</span> pts</div>
+  <div id="lives-box">
+    <span class="heart" id="h1">❤️</span>
+    <span class="heart" id="h2">❤️</span>
+    <span class="heart" id="h3">❤️</span>
+  </div>
+</div>
+
+<div id="game-wrapper">
+  <canvas id="gameCanvas" width="560" height="520"></canvas>
+
+  <img id="petinha-sprite"
+       src="Fotos-Petinha/Captura de tela 2026-10-29 160938.png"
+       alt="Petinha"/>
+
+  <!-- START -->
+  <div class="overlay" id="startScreen">
+    <img src="Fotos-Petinha/Captura de tela 2026-10-29 160938.png" class="petinha-thumb" alt="Petinha"/>
+    <h2>🍉 Petinha Comilona! 🍉</h2>
+    <p>
+      Ajude a Petinha a comer as frutas que ela ama!<br/>
+      <b style="color:#1a7a3c">Ama:</b> 🍉 🍈 🥭 🍑 🍌 🥑<br/>
+      <b style="color:#a01a2a">Não gosta:</b> 🍓 🥝 🫐<br/>
+      <b style="color:#8a6000">✨ Fruta dourada</b> = +1 vida extra!
+    </p>
+    <p>Use <b>← →</b> para mover · <b>ESPAÇO</b> pausa · <b>M</b> muta</p>
+    <button class="btn" id="startBtn">Vamos lá! 🎉</button>
+  </div>
+
+  <!-- GAME OVER -->
+  <div class="overlay" id="gameOverScreen" style="display:none">
+    <img src="Fotos-Petinha/Captura de tela 2026-10-29 161010.png" class="petinha-thumb" alt="Petinha triste"
+         style="filter:grayscale(.25) brightness(.92)"/>
+    <h2>😢 Fim de Jogo!</h2>
+    <p id="finalScore">Você fez 0 pontos!</p>
+    <button class="btn" id="restartBtn">Jogar de novo 🔄</button>
+  </div>
+
+  <!-- LEVEL UP -->
+  <div class="overlay" id="levelScreen" style="display:none">
+    <img src="Fotos-Petinha/Captura de tela 2026-10-29 160846.png" class="petinha-thumb" alt="Petinha feliz"/>
+    <h2 id="levelTitle">🎉 Uhuuul!</h2>
+    <p id="levelMsg">A Petinha adorou!</p>
+    <button class="btn" id="nextBtn">Continuar 🚀</button>
+  </div>
+</div>
+
+<div id="bottom">
+  <div id="legend">
+    <div class="chip chip-good">✅ Ama: 🍉 🍈 🥭 🍑 🍌 🥑</div>
+    <div class="chip chip-bad">❌ Evitar: 🍓 🥝 🫐</div>
+    <div class="chip chip-extra">✨ Especial: +❤️</div>
+  </div>
+  <div id="controls-hint">⬅️ ➡️ mover · ESPAÇO pausar · M mutar</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  CONSTANTS
+// ═══════════════════════════════════════════════════
+const CW=560, CH=520;
+const SW=92, SH=134;          // sprite dimensions
+const SPD=7;                  // player speed
+const FS=56;                  // fruit size
+const PTS=10, FRUITS_LVL=15;
+const MAX_LIVES=5;
+
+const GOOD=[
+  {emoji:"🍉"},{emoji:"🍈"},{emoji:"🥭"},
+  {emoji:"🍑"},{emoji:"🍌"},{emoji:"🥑"},
+];
+const BAD=[{emoji:"🍓"},{emoji:"🥝"},{emoji:"🫐"}];
+const SPECIAL={emoji:"⭐"};   // golden special fruit
+
+const PHOTOS={
+  normal:"Fotos-Petinha/Captura de tela 2026-10-29 160938.png",
+  happy: "Fotos-Petinha/Captura de tela 2026-10-29 160846.png",
+  sad:   "Fotos-Petinha/Captura de tela 2026-10-29 161010.png",
+};
+
+// ═══════════════════════════════════════════════════
+//  SETUP
+// ═══════════════════════════════════════════════════
+const canvas = document.getElementById("gameCanvas");
+const ctx    = canvas.getContext("2d");
+const sprite = document.getElementById("petinha-sprite");
+
+// Pre-load images used in canvas
+const bgImgs={};
+
+// ═══════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════
+let state="idle";
+let score=0,lives=3,level=1,collected=0;
+let frameCount=0,spawnInterval=78,specialTimer=0;
+let fruits=[],particles=[];
+let spriteLeft=CW/2-SW/2;
+let keys={},paused=false;
+let cloudOffset=0; // slow parallax
+
+// ═══════════════════════════════════════════════════
+//  HUD
+// ═══════════════════════════════════════════════════
+const scoreVal=document.getElementById("scoreVal");
+const hearts=["h1","h2","h3"].map(id=>document.getElementById(id));
+
+function updateHUD(){
+  scoreVal.textContent=score;
+  hearts.forEach((h,i)=>{
+    h.classList.toggle("lost", i>=lives);
+  });
+}
+function gainLifeAnim(){
+  // flash the newly gained heart
+  const idx=lives-1;
+  if(idx>=0&&idx<hearts.length){
+    hearts[idx].classList.add("gained");
+    setTimeout(()=>hearts[idx].classList.remove("gained"),500);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  SCREENS
+// ═══════════════════════════════════════════════════
+const startScreen   =document.getElementById("startScreen");
+const gameOverScreen=document.getElementById("gameOverScreen");
+const levelScreen   =document.getElementById("levelScreen");
+document.getElementById("startBtn")  .onclick=startGame;
+document.getElementById("restartBtn").onclick=()=>{gameOverScreen.style.display="none";startGame();};
+document.getElementById("nextBtn")   .onclick=()=>{levelScreen.style.display="none";state="playing";};
+
+// ═══════════════════════════════════════════════════
+//  INPUT
+// ═══════════════════════════════════════════════════
+window.addEventListener("keydown",e=>{
+  keys[e.key]=true;
+  if(e.key===" "&&state==="playing"){
+    paused=!paused;
+    if(paused)stopMusic();else startMusic();
+  }
+  if((e.key==="m"||e.key==="M"))toggleMute();
+  if(["ArrowLeft","ArrowRight"," "].includes(e.key))e.preventDefault();
+});
+window.addEventListener("keyup",e=>{keys[e.key]=false;});
+
+// ═══════════════════════════════════════════════════
+//  GAME INIT
+// ═══════════════════════════════════════════════════
+function startGame(){
+  startScreen.style.display="none";
+  score=0;lives=3;level=1;collected=0;
+  fruits=[];particles=[];frameCount=0;spawnInterval=78;specialTimer=0;
+  spriteLeft=CW/2-SW/2;
+  paused=false;
+  setPhoto("normal");
+  updateHUD();
+  state="playing";
+  startMusic();
+  requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════════════
+//  SPRITE
+// ═══════════════════════════════════════════════════
+function setPhoto(mood){sprite.src=PHOTOS[mood];}
+function triggerAnim(cls,ms=500){
+  sprite.classList.remove("happy","hurt","extra");
+  void sprite.offsetWidth;
+  sprite.classList.add(cls);
+  setTimeout(()=>sprite.classList.remove(cls),ms);
+}
+function updateSpritePos(){sprite.style.left=spriteLeft+"px";}
+
+// ═══════════════════════════════════════════════════
+//  SPAWN
+// ═══════════════════════════════════════════════════
+function spawnFruit(){
+  const roll=Math.random();
+  let type,emoji,bad=false,special=false;
+
+  if(roll<0.08){
+    // ~8% chance special life fruit
+    special=true; emoji=SPECIAL.emoji;
+  } else if(roll<0.33){
+    bad=true;
+    emoji=BAD[Math.floor(Math.random()*BAD.length)].emoji;
+  } else {
+    emoji=GOOD[Math.floor(Math.random()*GOOD.length)].emoji;
+  }
+
+  const speed=1.8+level*.5+Math.random()*1.3;
+  fruits.push({
+    x:12+Math.random()*(CW-FS-24),
+    y:-FS,
+    emoji, bad, special,
+    speed, rot:0,
+    rotSpd:(Math.random()-.5)*.11,
+    glow: special? 1 : 0, // for pulsing glow
+    glowDir: 1,
+  });
+}
+
+// ═══════════════════════════════════════════════════
+//  PARTICLES
+// ═══════════════════════════════════════════════════
+function spawnParts(x,y,color,n=10,big=false){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2, s=(big?3:2)+Math.random()*(big?6:4);
+    particles.push({
+      x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,
+      life:big?60:40,maxLife:big?60:40,
+      color,size:(big?10:6)+Math.random()*(big?10:8)
+    });
+  }
+}
+function spawnText(x,y,text,color,big=false){
+  particles.push({
+    type:"text",x,y,vy:big?-2.2:-1.7,
+    life:big?70:55,maxLife:big?70:55,
+    text,color,big
+  });
+}
+function spawnStars(x,y){
+  // golden star burst for special fruit
+  for(let i=0;i<16;i++){
+    const a=(i/16)*Math.PI*2, s=3+Math.random()*5;
+    particles.push({
+      x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,
+      life:55,maxLife:55,color:"#FFD700",
+      size:8+Math.random()*8, star:true
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  COLLISION
+// ═══════════════════════════════════════════════════
+function collides(f){
+  const sy=CH-20-SH+SH*.28, sh=SH*.72;
+  const px1=spriteLeft+8, px2=spriteLeft+SW-8;
+  const py1=sy, py2=sy+sh;
+  return px1<f.x+FS&&px2>f.x&&py1<f.y+FS&&py2>f.y;
+}
+
+// ═══════════════════════════════════════════════════
+//  BACKGROUND
+// ═══════════════════════════════════════════════════
+// Cloud data [x%, y, scale, speed]
+const CLOUD_DATA=[
+  [0.10, 44, .80, .18],
+  [0.35, 28, 1.0, .12],
+  [0.62, 52, .72, .20],
+  [0.82, 34, .88, .14],
+];
+
+function drawBG(){
+  // Sky gradient – deeper, more colourful
+  const sky=ctx.createLinearGradient(0,0,0,CH);
+  sky.addColorStop(0,"#c9f0ff");
+  sky.addColorStop(.45,"#fef1ff");
+  sky.addColorStop(1,"#ffe8f7");
+  ctx.fillStyle=sky; ctx.fillRect(0,0,CW,CH);
+
+  // Distant hills
+  drawHills();
+
+  // Clouds with parallax
+  cloudOffset=(cloudOffset+.15)%CW;
+  for(const [xp,cy,cs,spd] of CLOUD_DATA){
+    const cx=((xp*CW + cloudOffset*spd*2) % (CW+160))-80;
+    drawCloud(cx,cy,cs);
+  }
+
+  // Floating hearts / sparkles decoration
+  drawBgSparkles();
+
+  // Ground – lush gradient stripe
+  const gnd=ctx.createLinearGradient(0,CH-38,0,CH);
+  gnd.addColorStop(0,"#a8e86e");
+  gnd.addColorStop(.4,"#7dcf3a");
+  gnd.addColorStop(1,"#5fb82a");
+  ctx.fillStyle=gnd;
+  ctx.beginPath();
+  ctx.roundRect(0,CH-38,CW,38,[0,0,0,0]);
+  ctx.fill();
+
+  // Grass blades
+  for(let gx=8;gx<CW;gx+=18){
+    const h=6+Math.sin(gx*.4+frameCount*.05)*3;
+    ctx.strokeStyle=`rgba(100,200,50,${.5+Math.random()*.3})`;
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(gx,CH-38);
+    ctx.quadraticCurveTo(gx+4,CH-38-h,gx+2,CH-38-h*1.6);
+    ctx.stroke();
+  }
+
+  // Flowers
+  for(const [fx,fc] of [[55,"#ff9de0"],[135,"#ffe066"],[230,"#ff9de0"],[340,"#b5d9ff"],[430,"#ffe066"],[510,"#ff9de0"]]){
+    drawFlower(fx,CH-36,fc);
+  }
+}
+
+function drawHills(){
+  // back hill
+  ctx.fillStyle="rgba(200,240,180,.45)";
+  ctx.beginPath();
+  ctx.ellipse(140,CH-30,200,90,0,Math.PI,0);
+  ctx.fill();
+  ctx.fillStyle="rgba(180,230,160,.45)";
+  ctx.beginPath();
+  ctx.ellipse(420,CH-30,230,100,0,Math.PI,0);
+  ctx.fill();
+}
+
+function drawCloud(x,y,s){
+  ctx.save(); ctx.translate(x,y); ctx.scale(s,s);
+  // shadow
+  ctx.fillStyle="rgba(180,220,255,.25)";
+  ctx.beginPath();
+  ctx.ellipse(32,16,62,16,0,0,Math.PI*2); ctx.fill();
+  // cloud body
+  const cg=ctx.createRadialGradient(32,0,10,32,0,60);
+  cg.addColorStop(0,"rgba(255,255,255,.98)");
+  cg.addColorStop(1,"rgba(220,240,255,.85)");
+  ctx.fillStyle=cg;
+  ctx.beginPath();
+  ctx.arc(0,0,28,0,Math.PI*2);
+  ctx.arc(32,-12,24,0,Math.PI*2);
+  ctx.arc(62,2,28,0,Math.PI*2);
+  ctx.arc(32,14,20,0,Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawBgSparkles(){
+  // animated tiny stars floating in sky
+  const t=frameCount*.018;
+  const pts=[
+    [490,22,5],[18,88,4],[270,130,6],[410,185,4],[42,210,5],
+    [310,90,3],[170,165,4],[490,280,5],[100,310,3],
+  ];
+  for(const [x,y,r] of pts){
+    const pulse=.5+.5*Math.sin(t+x);
+    ctx.save();
+    ctx.globalAlpha=.3+.4*pulse;
+    ctx.fillStyle=`hsl(${(x+frameCount*.5)%360},90%,75%)`;
+    drawStarShape(x,y,r*(0.7+0.6*pulse));
+    ctx.restore();
+  }
+}
+
+function drawStarShape(x,y,r){
+  ctx.beginPath();
+  for(let i=0;i<5;i++){
+    ctx.lineTo(x+Math.cos((18+i*72)*Math.PI/180)*r, y-Math.sin((18+i*72)*Math.PI/180)*r);
+    ctx.lineTo(x+Math.cos((54+i*72)*Math.PI/180)*(r*.42), y-Math.sin((54+i*72)*Math.PI/180)*(r*.42));
+  }
+  ctx.closePath(); ctx.fill();
+}
+
+function drawFlower(x,y,color){
+  ctx.save();
+  ctx.translate(x,y);
+  ctx.fillStyle=color;
+  for(let i=0;i<5;i++){
+    ctx.beginPath();
+    ctx.ellipse(Math.cos(i*72*Math.PI/180)*5, Math.sin(i*72*Math.PI/180)*5, 4,3,i*72*Math.PI/180,0,Math.PI*2);
+    ctx.fill();
+  }
+  ctx.fillStyle="#fff176";
+  ctx.beginPath(); ctx.arc(0,0,3.5,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════
+//  DRAW FRUITS
+// ═══════════════════════════════════════════════════
+function drawFruit(f){
+  ctx.save();
+  ctx.translate(f.x+FS/2, f.y+FS/2);
+  ctx.rotate(f.rot);
+
+  if(f.special){
+    // pulsing golden halo
+    f.glow+=.06*f.glowDir;
+    if(f.glow>1||f.glow<0)f.glowDir*=-1;
+    const pulse=.5+.5*f.glow;
+    ctx.shadowColor=`rgba(255,215,0,${.7*pulse})`;
+    ctx.shadowBlur=18+10*pulse;
+    // outer ring
+    ctx.strokeStyle=`rgba(255,215,0,${.5+.5*pulse})`;
+    ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.arc(0,0,FS*.55+4*pulse,0,Math.PI*2);
+    ctx.stroke();
+  } else if(f.bad){
+    ctx.shadowColor="rgba(220,53,69,.5)";
+    ctx.shadowBlur=14;
+  } else {
+    ctx.shadowColor="rgba(50,200,90,.35)";
+    ctx.shadowBlur=10;
+  }
+
+  ctx.font=`${FS}px serif`;
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText(f.emoji,0,0);
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════
+//  DRAW PARTICLES
+// ═══════════════════════════════════════════════════
+function drawParticles(){
+  for(const p of particles){
+    const a=p.life/p.maxLife;
+    ctx.save(); ctx.globalAlpha=a;
+    if(p.type==="text"){
+      const sz=p.big?26:19;
+      ctx.font=`800 ${sz}px 'Baloo 2',cursive`;
+      ctx.fillStyle=p.color;
+      ctx.textAlign="center";
+      ctx.shadowColor=p.color; ctx.shadowBlur=8;
+      ctx.fillText(p.text,p.x,p.y);
+    } else if(p.star){
+      ctx.fillStyle=p.color;
+      ctx.shadowColor="#FFD700"; ctx.shadowBlur=10;
+      drawStarShape(p.x,p.y,p.size*a);
+    } else {
+      ctx.fillStyle=p.color;
+      ctx.shadowColor=p.color; ctx.shadowBlur=6;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.size*a,0,Math.PI*2); ctx.fill();
+    }
+    ctx.restore();
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  DRAW LEVEL + PAUSE
+// ═══════════════════════════════════════════════════
+function drawHUD(){
+  // Level pill in canvas top-right
+  ctx.save();
+  ctx.fillStyle="rgba(255,255,255,.7)";
+  ctx.beginPath(); ctx.roundRect(CW-110,8,100,32,[16]); ctx.fill();
+  ctx.font="bold 1rem 'Baloo 2',cursive";
+  ctx.fillStyle="#e0306a"; ctx.textAlign="center";
+  ctx.shadowColor="rgba(255,255,255,.8)"; ctx.shadowBlur=4;
+  ctx.fillText(`Nível ${level} 🌟`,CW-60,29);
+  ctx.restore();
+}
+
+function drawPause(){
+  ctx.save();
+  ctx.fillStyle="rgba(250,230,255,.8)"; ctx.fillRect(0,0,CW,CH);
+  ctx.font="bold 3.2rem 'Baloo 2',cursive";
+  ctx.fillStyle="#e0306a"; ctx.textAlign="center";
+  ctx.shadowColor="#fff"; ctx.shadowBlur=10;
+  ctx.fillText("⏸ PAUSADO",CW/2,CH/2-10);
+  ctx.font="1.1rem 'Baloo 2',cursive";
+  ctx.fillStyle="#888"; ctx.shadowBlur=0;
+  ctx.fillText("Pressione ESPAÇO para continuar",CW/2,CH/2+44);
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════
+//  UPDATE
+// ═══════════════════════════════════════════════════
+function update(){
+  frameCount++;
+
+  if(keys["ArrowLeft"] &&spriteLeft>0)     spriteLeft-=SPD;
+  if(keys["ArrowRight"]&&spriteLeft<CW-SW) spriteLeft+=SPD;
+  updateSpritePos();
+
+  if(frameCount%spawnInterval===0) spawnFruit();
+
+  for(let i=fruits.length-1;i>=0;i--){
+    const f=fruits[i];
+    f.y+=f.speed; f.rot+=f.rotSpd;
+
+    if(collides(f)){
+      fruits.splice(i,1);
+      const fx=f.x+FS/2, fy=f.y+FS/2;
+
+      if(f.special){
+        // ✨ SPECIAL: gain a life (max 5, add heart to DOM if needed)
+        if(lives<MAX_LIVES){
+          lives++;
+          // if >3 lives, add extra heart element
+          if(lives>3){
+            let eh=document.getElementById(`h${lives}`);
+            if(!eh){
+              eh=document.createElement("span");
+              eh.className="heart";
+              eh.id=`h${lives}`;
+              eh.textContent="❤️";
+              document.getElementById("lives-box").appendChild(eh);
+              hearts.push(eh);
+            }
+          }
+        }
+        gainLifeAnim();
+        setPhoto("happy"); triggerAnim("extra",700);
+        setTimeout(()=>setPhoto("normal"),750);
+        spawnStars(fx,fy);
+        spawnText(fx,fy,"✨ +1 ❤️","#FFD700",true);
+        playSoundExtra();
+        updateHUD();
+      } else if(f.bad){
+        lives=Math.max(0,lives-1);
+        setPhoto("sad"); triggerAnim("hurt",650);
+        setTimeout(()=>setPhoto("normal"),700);
+        spawnParts(fx,fy,"#ff4466",14);
+        spawnText(fx,fy,"-1 ❤️","#ff3355");
+        playSoundBad();
+        updateHUD();
+        if(lives<=0){state="over";setTimeout(showGameOver,420);}
+      } else {
+        score+=PTS*level; collected++;
+        setPhoto("happy"); triggerAnim("happy",700);
+        setTimeout(()=>setPhoto("normal"),750);
+        spawnParts(fx,fy,"#44dd88",10);
+        spawnText(fx,fy,`+${PTS*level}⭐`,"#22aa55");
+        playSoundGood();
+        updateHUD();
+        if(collected>0&&collected%FRUITS_LVL===0){
+          level++;
+          spawnInterval=Math.max(26,spawnInterval-7);
+          state="levelup";
+          playSoundLevelUp();
+          showLevelUp();
+        }
+      }
+      continue;
+    }
+    if(f.y>CH) fruits.splice(i,1);
+  }
+
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i]; p.life--;
+    if(p.type==="text") p.y+=p.vy;
+    else{p.x+=p.vx;p.y+=p.vy;p.vy+=.13;}
+    if(p.life<=0) particles.splice(i,1);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  SCREENS
+// ═══════════════════════════════════════════════════
+function showLevelUp(){
+  document.getElementById("levelTitle").textContent=`🎉 Nível ${level}!`;
+  document.getElementById("levelMsg").textContent=`A Petinha está amando! Pontos: ${score} ⭐`;
+  levelScreen.style.display="flex";
+}
+function showGameOver(){
+  playSoundGameOver();
+  document.getElementById("finalScore").textContent=`Você fez ${score} pontos! 🌟`;
+  gameOverScreen.style.display="flex";
+}
+
+// ═══════════════════════════════════════════════════
+//  LOOP
+// ═══════════════════════════════════════════════════
+function loop(){
+  if(state==="over")return;
+  ctx.clearRect(0,0,CW,CH);
+  drawBG();
+  if(state==="playing"&&!paused)update();
+  fruits.forEach(drawFruit);
+  drawParticles();
+  drawHUD();
+  if(paused&&state==="playing")drawPause();
+  requestAnimationFrame(loop);
+}
+
+updateSpritePos();
+requestAnimationFrame(loop);
+
+// ═══════════════════════════════════════════════════
+//  AUDIO ENGINE
+// ═══════════════════════════════════════════════════
+let audioCtx=null, musicPlaying=false, melodyTimer=null, melodyIdx=0;
+
+function getAudioCtx(){
+  if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+  return audioCtx;
+}
+function masterGain(){
+  const ac=getAudioCtx();
+  if(!masterGain._n){
+    masterGain._n=ac.createGain();
+    masterGain._n.gain.value=0.52;
+    masterGain._n.connect(ac.destination);
+  }
+  return masterGain._n;
+}
+function playTone(freq,type,t,dur,vol,ac,dest){
+  const o=ac.createOscillator(), g=ac.createGain();
+  o.type=type; o.frequency.setValueAtTime(freq,t);
+  g.gain.setValueAtTime(vol,t);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g);g.connect(dest);
+  o.start(t);o.stop(t+dur+.01);
+}
+function toggleMute(){
+  const mg=masterGain(),ac=getAudioCtx();
+  mg.gain.setTargetAtTime(mg.gain.value>0?0:0.52,ac.currentTime,.05);
+}
+
+// Melody – cheerful major key tune
+const MEL=[
+  523,659,784,659, 698,880,784,659,
+  523,587,659,784, 880,784,698,659,
+  784,880,1046,880, 784,698,659,587,
+  523,659,784,880, 784,659,523,392,
+];
+const BASS=[130,130,164,164,174,174,164,164,130,130,146,146,174,174,164,164];
+const MDUR=0.165, MGAP=0.018;
+
+function startMusic(){
+  if(musicPlaying)return;
+  musicPlaying=true; scheduleMelody();
+}
+function stopMusic(){
+  musicPlaying=false;
+  if(melodyTimer)clearTimeout(melodyTimer);
+}
+function scheduleMelody(){
+  if(!musicPlaying)return;
+  const ac=getAudioCtx(),dest=masterGain(),now=ac.currentTime;
+  playTone(MEL[melodyIdx%MEL.length],"square",now,MDUR,.15,ac,dest);
+  if(melodyIdx%2===0)
+    playTone(BASS[(melodyIdx/2)%BASS.length],"triangle",now,MDUR*2,.10,ac,dest);
+  playHihat(now,ac,dest);
+  melodyIdx++;
+  melodyTimer=setTimeout(scheduleMelody,(MDUR+MGAP)*1000);
+}
+function playHihat(w,ac,dest){
+  const n=ac.sampleRate*.04,buf=ac.createBuffer(1,n,ac.sampleRate),d=buf.getChannelData(0);
+  for(let i=0;i<n;i++)d[i]=Math.random()*2-1;
+  const s=ac.createBufferSource(),g=ac.createGain(),f=ac.createBiquadFilter();
+  s.buffer=buf; f.type="highpass"; f.frequency.value=6000;
+  g.gain.setValueAtTime(.035,w); g.gain.exponentialRampToValueAtTime(.0001,w+.04);
+  s.connect(f);f.connect(g);g.connect(dest);
+  s.start(w);s.stop(w+.05);
+}
+
+function playSoundGood(){
+  const ac=getAudioCtx(),dest=masterGain(),now=ac.currentTime;
+  [523,659,784,1046].forEach((f,i)=>playTone(f,"sine",now+i*.07,.2,.28,ac,dest));
+}
+function playSoundBad(){
+  const ac=getAudioCtx(),dest=masterGain(),now=ac.currentTime;
+  [300,250,200].forEach((f,i)=>playTone(f,"sawtooth",now+i*.08,.16,.22,ac,dest));
+  playTone(80,"sine",now,.3,.38,ac,dest);
+}
+function playSoundExtra(){
+  // sparkly ascending glissando
+  const ac=getAudioCtx(),dest=masterGain(),now=ac.currentTime;
+  [523,659,784,1046,1318,1568].forEach((f,i)=>playTone(f,"sine",now+i*.055,.22,.3,ac,dest));
+  // bell shimmer
+  [2093,2637].forEach((f,i)=>playTone(f,"sine",now+i*.08,.15,.15,ac,dest));
+}
+function playSoundLevelUp(){
+  const ac=getAudioCtx(),dest=masterGain(),now=ac.currentTime;
+  [523,659,784,1046,1318].forEach((f,i)=>playTone(f,"sine",now+i*.09,.22,.26,ac,dest));
+}
+function playSoundGameOver(){
+  stopMusic();
+  const ac=getAudioCtx(),dest=masterGain(),now=ac.currentTime;
+  [[523,.00,.25],[494,.28,.25],[440,.56,.25],[392,.84,.55]]
+    .forEach(([f,t,d])=>playTone(f,"triangle",now+t,d,.33,ac,dest));
+  playTone(98,"sawtooth",now+.84,.9,.18,ac,dest);
+}
+</script>
+</body>
+</html>
